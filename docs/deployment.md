@@ -138,7 +138,47 @@ az webapp deployment source config-zip \
 
 ### Step 5: Create Teams App
 
-1. **Create App Manifest:**
+#### Option A: Automated Generation (Recommended)
+
+Use the provided scripts to automatically generate the Teams manifest:
+
+**Quick Generation:**
+```bash
+# Simple generation for testing
+./deployment/scripts/quick-teams-manifest.sh your-resource-group-name
+
+# With custom bot name and company
+./deployment/scripts/quick-teams-manifest.sh your-resource-group-name "My AI Assistant" "My Company"
+```
+
+**Full Featured Generation:**
+```bash
+# Basic usage - auto-discovers all settings
+./deployment/scripts/generate-teams-manifest.sh -g your-resource-group-name
+
+# Production deployment with full customization
+./deployment/scripts/generate-teams-manifest.sh \
+  -g your-resource-group-name \
+  -e prod \
+  -c "Your Company Name" \
+  -w "https://yourcompany.com" \
+  -n "Your AI Assistant" \
+  -s "Enterprise AI chatbot" \
+  -f "Advanced AI assistant for Microsoft Teams collaboration"
+```
+
+The scripts will:
+- Auto-discover Bot ID and App Service URL from Azure
+- Generate proper manifest.json with all required fields
+- Create placeholder icons (replace with custom ones for production)
+- Generate installation instructions
+- Create complete app package ready for Teams
+
+For detailed script documentation, see: [`deployment/scripts/README-TEAMS-MANIFEST.md`](../deployment/scripts/README-TEAMS-MANIFEST.md)
+
+#### Option B: Manual Creation
+
+1. **Create App Manifest manually:**
    ```json
    {
      "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
@@ -164,26 +204,17 @@ az webapp deployment source config-zip \
        "short": "AI-powered chatbot for Teams",
        "full": "An intelligent chatbot powered by Azure OpenAI for Microsoft Teams"
      },
-     "accentColor": "#FFFFFF",
+     "accentColor": "#0078D4",
      "bots": [
        {
          "botId": "your-bot-app-id",
-         "scopes": [
-           "personal",
-           "team",
-           "groupchat"
-         ],
+         "scopes": ["personal", "team", "groupchat"],
          "supportsFiles": false,
          "isNotificationOnly": false
        }
      ],
-     "permissions": [
-       "identity",
-       "messageTeamMembers"
-     ],
-     "validDomains": [
-       "your-app.azurewebsites.net"
-     ]
+     "permissions": ["identity", "messageTeamMembers"],
+     "validDomains": ["your-app.azurewebsites.net"]
    }
    ```
 
@@ -191,9 +222,17 @@ az webapp deployment source config-zip \
    - Create icons (color: 192x192px, outline: 32x32px)
    - Zip manifest.json and icons into app package
 
-3. **Install in Teams:**
-   - Upload app package to Teams
-   - Install for your organization or specific teams
+#### Installing in Teams
+
+1. **Upload to Teams:**
+   - Go to Teams → Apps → Manage your apps
+   - Click "Upload an app" → "Upload a custom app"
+   - Select the manifest.json or app package zip file
+
+2. **Organization-wide deployment:**
+   - Use Teams Admin Center for enterprise deployment
+   - Upload and approve the app package
+   - Enable for your organization
 
 ## Environment-Specific Configurations
 
