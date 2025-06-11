@@ -1,0 +1,46 @@
+// Parameters file for production environment
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "appName": {
+      "value": "teamschatbot"
+    },
+    "environment": {
+      "value": "prod"
+    },
+    "location": {
+      "value": "eastus"
+    },
+    "appServicePlanSku": {
+      "value": "P1v2"
+    },
+    "openAiLocation": {
+      "value": "eastus"
+    },
+    "openAiSku": {
+      "value": "S0"
+    },
+    "gptDeploymentName": {
+      "value": "gpt-35-turbo"
+    },
+    "gptModelName": {
+      "value": "gpt-35-turbo"
+    },
+    "gptModelVersion": {
+      "value": "0613"
+    },
+    "gptDeploymentCapacity": {
+      "value": 50
+    },
+    "enableAppInsights": {
+      "value": true
+    },
+    "enableSqlDatabase": {
+      "value": true
+    },
+    "sqlAdminUsername": {
+      "value": "chatbotadmin"
+    }
+  }
+}
