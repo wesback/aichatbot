@@ -25,26 +25,14 @@ logger = logging.getLogger(__name__)
 # Create Flask app
 app = Flask(__name__)
 
-# Bot Framework adapter settings - Support both Managed Identity and App Password
-if config.is_app_id_password_mode:
-    # Traditional App ID/Password authentication
+# Bot Framework adapter settings - use App ID/Password if configured, otherwise development mode
+if config.microsoft_app_id and config.microsoft_app_password:
     logger.info("Using Bot Framework App ID/Password authentication")
     settings = BotFrameworkAdapterSettings(
         app_id=config.microsoft_app_id,
         app_password=config.microsoft_app_password
     )
-elif config.is_managed_identity_mode:
-    # Managed Identity authentication (for Azure deployment)
-    # Note: For managed identity, we need to use development mode to avoid authentication errors
-    # until proper managed identity credentials are implemented
-    logger.info("Using Bot Framework Managed Identity authentication (development mode)")
-    logger.warning("⚠️ Managed Identity mode: Using development mode to avoid authentication errors")
-    settings = BotFrameworkAdapterSettings(
-        app_id="",  # Use empty to avoid authentication validation
-        app_password=""  # Empty for no authentication
-    )
 else:
-    # Development/local mode - no authentication
     logger.info("Using Bot Framework development mode (no authentication)")
     settings = BotFrameworkAdapterSettings(
         app_id="",
@@ -96,6 +84,8 @@ async def on_error(context: TurnContext, error: Exception):
     try:
         if context and hasattr(context, 'send_activity'):
             await context.send_activity(error_response)
+    except KeyError as send_error:
+        logger.warning(f"Cannot send error message due to missing access token: {send_error}")
     except Exception as send_error:
         logger.error(f"Failed to send error message to user: {send_error}")
 
