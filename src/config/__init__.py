@@ -6,8 +6,30 @@ from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables from .env files in priority order
+def load_environment_files():
+    """Load environment variables from .env files in priority order."""
+    env_files = [
+        '.env',           # Primary .env file (user-created)
+        '.env.local',     # Local development overrides
+        '.env.dev',       # Development environment
+        '.env.development'  # Alternative development name
+    ]
+    
+    loaded_files = []
+    for env_file in env_files:
+        if os.path.exists(env_file):
+            load_dotenv(env_file)
+            loaded_files.append(env_file)
+    
+    # Use basic logging since the logger isn't set up yet
+    if not loaded_files:
+        print(f"WARNING: No .env files found. Checked: {', '.join(env_files)}")
+        print("WARNING: Please create a .env file with your configuration. See .env.example for reference.")
+    else:
+        print(f"INFO: Successfully loaded environment from: {', '.join(loaded_files)}")
+
+load_environment_files()
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +77,76 @@ class Config:
                 logger.debug(f"Failed to get secret '{key}' from Key Vault: {e}")
         
         # Fall back to environment variables
-        return os.getenv(key, default)
+        value = os.getenv(key, default)
+        
+        # Check for placeholder values that need to be replaced
+        if value and self._is_placeholder_value(value):
+            logger.warning(f"Configuration '{key}' contains placeholder value. Please update your .env file with actual credentials.")
+            return default  # Treat placeholder as missing
+        
+        return value
+    
+    def _is_placeholder_value(self, value: str) -> bool:
+        """Check if a value is a placeholder that needs to be replaced."""
+        if not value:
+            return False
+        
+        placeholder_indicators = [
+            'your-',
+            'replace-',
+            'example-',
+            'placeholder',
+            'TODO',
+            'CHANGEME',
+            'your_',
+            'REPLACE_'
+        ]
+        
+        return any(indicator in value.lower() for indicator in placeholder_indicators)
+    
+    def validate_critical_config(self) -> dict:
+        """
+        Validate critical configuration and return status information.
+        
+        Returns:
+            Dictionary with validation results and helpful messages
+        """
+        validation_results = {
+            "valid": True,
+            "warnings": [],
+            "errors": [],
+            "missing_configs": []
+        }
+        
+        # Critical OpenAI configuration
+        if not self.azure_openai_endpoint:
+            validation_results["errors"].append("AZURE_OPENAI_ENDPOINT is not configured")
+            validation_results["missing_configs"].append("AZURE_OPENAI_ENDPOINT")
+            validation_results["valid"] = False
+            
+        if not self.azure_openai_api_key:
+            validation_results["errors"].append("AZURE_OPENAI_API_KEY is not configured")
+            validation_results["missing_configs"].append("AZURE_OPENAI_API_KEY")
+            validation_results["valid"] = False
+        
+        # Bot Framework configuration (optional for web-only usage)
+        if not self.microsoft_app_id or not self.microsoft_app_password:
+            validation_results["warnings"].append(
+                "Bot Framework credentials (MICROSOFT_APP_ID, MICROSOFT_APP_PASSWORD) are not configured. "
+                "Teams integration will not work, but the web interface will still function."
+            )
+        
+        # Add helpful setup message if there are missing configs
+        if validation_results["missing_configs"]:
+            validation_results["setup_help"] = (
+                f"To fix these issues:\n"
+                f"1. Copy .env.example to .env\n"
+                f"2. Replace placeholder values with your actual credentials\n"
+                f"3. Missing: {', '.join(validation_results['missing_configs'])}\n"
+                f"4. See README.md for detailed setup instructions"
+            )
+        
+        return validation_results
     
     # Azure OpenAI Configuration
     @property

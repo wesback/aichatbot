@@ -411,26 +411,29 @@ def health_check():
         JSON response with health status
     """
     try:
+        # Use the new configuration validation
+        validation = config.validate_critical_config()
+        
         health_status = {
-            "status": "healthy",
+            "status": "healthy" if validation["valid"] else "degraded",
             "service": "Azure Teams AI Chatbot",
             "version": "1.0.0",
             "components": {
                 "flask": "ok",
-                "bot_framework": "ok",
-                "azure_openai": "ok" if config.azure_openai_endpoint else "not_configured",
-                "configuration": "ok" if config.microsoft_app_id else "incomplete"
+                "bot_framework": "ok" if config.microsoft_app_id and config.microsoft_app_password else "not_configured",
+                "azure_openai": "ok" if config.azure_openai_endpoint and config.azure_openai_api_key else "not_configured",
+                "configuration": "ok" if validation["valid"] else "incomplete"
+            },
+            "config_validation": {
+                "valid": validation["valid"],
+                "errors": validation["errors"],
+                "warnings": validation["warnings"]
             }
         }
         
-        # Check if critical configuration is missing
-        if not config.azure_openai_endpoint or not config.azure_openai_api_key:
-            health_status["status"] = "degraded"
-            health_status["components"]["azure_openai"] = "not_configured"
-        
-        if not config.microsoft_app_id or not config.microsoft_app_password:
-            health_status["status"] = "degraded"
-            health_status["components"]["bot_framework"] = "not_configured"
+        # Include setup help if there are missing configurations
+        if "setup_help" in validation:
+            health_status["setup_help"] = validation["setup_help"]
         
         status_code = 200 if health_status["status"] == "healthy" else 503
         return jsonify(health_status), status_code
