@@ -32,7 +32,20 @@ settings = BotFrameworkAdapterSettings(
 )
 
 # Create Bot Framework adapter
-adapter = BotFrameworkAdapter(settings)
+try:
+    adapter = BotFrameworkAdapter(settings)
+    logger.info("Bot Framework adapter initialized successfully")
+    
+    # Log configuration status for debugging
+    if not config.microsoft_app_id:
+        logger.warning("Microsoft App ID is not configured - this may cause authentication issues in production")
+    if not config.microsoft_app_password:
+        logger.warning("Microsoft App Password is not configured - this may cause authentication issues in production")
+        
+except Exception as e:
+    logger.error(f"Failed to initialize Bot Framework adapter: {e}")
+    # Create adapter anyway to allow the application to start, but log the issue
+    adapter = BotFrameworkAdapter(settings)
 
 # Create bot instance
 bot = TeamsBot()
@@ -48,8 +61,26 @@ async def on_error(context: TurnContext, error: Exception):
     """
     logger.error(f"Bot Framework error: {error}")
     
-    # Send a message to the user
-    await context.send_activity("Sorry, an error occurred. Please try again.")
+    # Handle specific authentication errors
+    error_str = str(error)
+    if "access_token" in error_str or isinstance(error, KeyError) and str(error) == "'access_token'":
+        logger.error("Authentication error: MSAL failed to obtain access token. This may be due to invalid credentials, network issues, or Azure service problems.")
+        error_message = "I'm having trouble with authentication right now. Please check that the Bot Framework credentials are properly configured."
+    elif "Unauthorized" in error_str or "401" in error_str:
+        logger.error("Authorization error: Request was not authorized by Bot Framework")
+        error_message = "Authorization failed. Please ensure the bot is properly registered and configured in Azure Bot Services."
+    elif "Not enough segments" in error_str:
+        logger.error("JWT token error: Malformed authentication token received")
+        error_message = "Authentication token error. Please try again or contact support if the issue persists."
+    else:
+        error_message = "Sorry, an error occurred. Please try again."
+    
+    # Send a message to the user if context is available
+    try:
+        if context and context.activity:
+            await context.send_activity(error_message)
+    except Exception as send_error:
+        logger.error(f"Failed to send error message to user: {send_error}")
 
 
 adapter.on_turn_error = on_error
@@ -309,6 +340,20 @@ def messages():
         
         return jsonify({"status": "ok"})
         
+    except KeyError as e:
+        if str(e) == "'access_token'":
+            logger.error("MSAL authentication failed: access_token not found in auth response")
+            return jsonify({
+                "error": "Authentication failed: Unable to obtain access token from Microsoft authentication service"
+            }), 401
+        else:
+            logger.error(f"KeyError in Bot Framework message processing: {e}")
+            return jsonify({"error": f"Missing required field: {e}"}), 400
+    except PermissionError as e:
+        logger.error(f"Authorization error in Bot Framework: {e}")
+        return jsonify({
+            "error": "Unauthorized: Bot Framework authentication failed"
+        }), 401
     except Exception as e:
         logger.error(f"Error processing Bot Framework message: {e}")
         return jsonify({"error": str(e)}), 500
