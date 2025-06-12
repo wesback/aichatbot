@@ -41,10 +41,55 @@ This guide helps you diagnose and resolve common issues with the Azure Teams AI 
 5. **Verify Bot Framework Authentication:**
    - Ensure `MICROSOFT_APP_ID` and `MICROSOFT_APP_PASSWORD` are correctly set
    - Check Key Vault secrets if using Key Vault
+   - For managed identity issues, see [Bot Framework Authentication Errors](#bot-framework-authentication-errors)
 
 ---
 
-### 2. Azure OpenAI API Errors
+### 2. Bot Framework Authentication Errors
+
+**Symptoms:**
+- `Bot Framework error: 'access_token'` in logs
+- `KeyError: 'access_token'` exceptions
+- Bot failing to process incoming messages
+
+**Possible Causes:**
+- Managed identity configuration issues
+- Missing or invalid app credentials
+- MSAL authentication failures
+
+**Solutions:**
+
+1. **For Managed Identity Mode:**
+   - The current implementation uses development mode to bypass authentication
+   - This is a temporary workaround until proper managed identity credentials are implemented
+   - Verify that your App Service has managed identity enabled:
+     ```bash
+     az webapp identity show --resource-group your-rg --name your-app
+     ```
+
+2. **For App ID/Password Mode:**
+   - Ensure both `MICROSOFT_APP_ID` and `MICROSOFT_APP_PASSWORD` are set
+   - Verify credentials are valid by testing them:
+     ```bash
+     # Test in Azure CLI
+     az login --service-principal -u YOUR_APP_ID -p YOUR_APP_PASSWORD --tenant YOUR_TENANT
+     ```
+
+3. **Configuration Check:**
+   - Review the Bot Framework configuration in your logs
+   - Look for messages like "Using Bot Framework development mode" or "Managed Identity mode"
+   - Ensure the configuration matches your deployment scenario
+
+4. **Debugging Steps:**
+   - Check the health endpoint: `/health`
+   - Look for "Authentication configuration error" in API responses
+   - Monitor Application Insights for authentication failures
+
+**Note:** The current fix automatically handles the 'access_token' error gracefully, but proper managed identity implementation is recommended for production deployments.
+
+---
+
+### 3. Azure OpenAI API Errors
 
 **Symptoms:**
 - "I'm having trouble connecting to my AI service" messages
@@ -82,7 +127,7 @@ This guide helps you diagnose and resolve common issues with the Azure Teams AI 
 
 ---
 
-### 3. Key Vault Access Issues
+### 4. Key Vault Access Issues
 
 **Symptoms:**
 - "Failed to get secret from Key Vault" in logs
@@ -122,7 +167,7 @@ This guide helps you diagnose and resolve common issues with the Azure Teams AI 
 
 ---
 
-### 4. Teams App Installation Issues
+### 5. Teams App Installation Issues
 
 **Symptoms:**
 - Unable to install Teams app
@@ -148,7 +193,7 @@ This guide helps you diagnose and resolve common issues with the Azure Teams AI 
 
 ---
 
-### 5. Performance Issues
+### 6. Performance Issues
 
 **Symptoms:**
 - Slow response times
@@ -174,7 +219,7 @@ This guide helps you diagnose and resolve common issues with the Azure Teams AI 
 
 ---
 
-### 6. Deployment Issues
+### 7. Deployment Issues
 
 **Symptoms:**
 - Deployment failures
