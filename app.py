@@ -25,11 +25,29 @@ logger = logging.getLogger(__name__)
 # Create Flask app
 app = Flask(__name__)
 
-# Bot Framework adapter settings
-settings = BotFrameworkAdapterSettings(
-    app_id=config.microsoft_app_id,
-    app_password=config.microsoft_app_password
-)
+# Bot Framework adapter settings - Support both Managed Identity and App Password
+if config.microsoft_app_id and config.microsoft_app_password:
+    # Traditional App ID/Password authentication
+    logger.info("Using Bot Framework App ID/Password authentication")
+    settings = BotFrameworkAdapterSettings(
+        app_id=config.microsoft_app_id,
+        app_password=config.microsoft_app_password
+    )
+else:
+    # Managed Identity authentication (for Azure deployment)
+    logger.info("Using Bot Framework Managed Identity authentication")
+    settings = BotFrameworkAdapterSettings(
+        app_id="",  # Empty for managed identity
+        app_password=""  # Empty for managed identity
+    )
+
+# Validate Bot Framework configuration
+if not config.microsoft_app_id and not config.microsoft_app_password:
+    logger.warning("Bot Framework credentials not configured. Using Managed Identity mode for Azure deployment.")
+elif config.microsoft_app_id and not config.microsoft_app_password:
+    logger.warning("MICROSOFT_APP_PASSWORD is not configured but MICROSOFT_APP_ID is set. This may cause authentication issues.")
+elif not config.microsoft_app_id and config.microsoft_app_password:
+    logger.warning("MICROSOFT_APP_ID is not configured but MICROSOFT_APP_PASSWORD is set. This may cause authentication issues.")
 
 # Create Bot Framework adapter
 adapter = BotFrameworkAdapter(settings)

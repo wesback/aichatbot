@@ -197,6 +197,20 @@ resource appService 'Microsoft.Web/sites@2023-01-01' = {
   }
 }
 
+// Update App Service configuration with Bot App ID after Bot Service is created
+resource appServiceConfigUpdate 'Microsoft.Web/sites/config@2023-01-01' = {
+  parent: appService
+  name: 'appsettings'
+  properties: {
+    AZURE_OPENAI_ENDPOINT: openAiService.properties.endpoint
+    AZURE_OPENAI_DEPLOYMENT_NAME: gptDeploymentName
+    AZURE_KEY_VAULT_URL: keyVault.properties.vaultUri
+    MICROSOFT_APP_ID: botService.properties.msaAppId
+    SCM_DO_BUILD_DURING_DEPLOYMENT: 'true'
+    ENABLE_ORYX_BUILD: 'true'
+  }
+}
+
 // SQL Server (optional)
 resource sqlServer 'Microsoft.Sql/servers@2023-05-01-preview' = if (enableSqlDatabase && !empty(sqlAdminPassword)) {
   name: sqlServerName
