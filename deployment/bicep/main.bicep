@@ -51,7 +51,7 @@ param sqlAdminPassword string = ''
 
 // Variables
 var resourcePrefix = '${appName}-${environment}'
-var keyVaultName = '${resourcePrefix}-kv-${uniqueString(resourceGroup().id)}'
+var keyVaultName = '${take(appName, 8)}-${take(environment, 3)}-kv-${take(uniqueString(resourceGroup().id), 6)}'
 var appServicePlanName = '${resourcePrefix}-plan'
 var appServiceName = '${resourcePrefix}-app'
 var openAiName = '${resourcePrefix}-openai'
@@ -204,6 +204,7 @@ resource appServiceConfigUpdate 'Microsoft.Web/sites/config@2023-01-01' = {
   properties: {
     AZURE_OPENAI_ENDPOINT: openAiService.properties.endpoint
     AZURE_OPENAI_DEPLOYMENT_NAME: gptDeploymentName
+    AZURE_OPENAI_API_VERSION: '2024-02-15-preview'
     AZURE_KEY_VAULT_URL: keyVault.properties.vaultUri
     MICROSOFT_APP_ID: botService.properties.msaAppId
     SCM_DO_BUILD_DURING_DEPLOYMENT: 'true'
@@ -263,11 +264,10 @@ resource botService 'Microsoft.BotService/botServices@2022-09-15' = {
   properties: {
     displayName: '${appName} ${environment} Bot'
     endpoint: 'https://${appService.properties.defaultHostName}/api/messages'
-    msaAppId: ''
+    msaAppId: appService.identity.principalId
+    msaAppType: 'SystemAssignedMSI'
     msaAppMSIResourceId: appService.id
     msaAppTenantId: subscription().tenantId
-    msaAppType: 'SystemAssignedMSI'
-    schemaTransformationVersion: '1.3'
   }
 }
 
@@ -317,6 +317,21 @@ resource openAiKeySecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
     keyVaultRoleAssignment
   ]
 }
+
+// Store Bot Framework App ID in Key Vault (for consistency)
+resource microsoftAppIdSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'MICROSOFT-APP-ID'
+  properties: {
+    value: botService.properties.msaAppId
+  }
+  dependsOn: [
+    keyVaultRoleAssignment
+  ]
+}
+
+// Note: MICROSOFT_APP_PASSWORD is not needed for Managed Identity authentication
+// The bot is configured with msaAppType: 'SystemAssignedMSI' which uses the App Service's managed identity
 
 // Store SQL connection string in Key Vault (if SQL is enabled)
 resource sqlConnectionStringSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = if (enableSqlDatabase && !empty(sqlAdminPassword)) {

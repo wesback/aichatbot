@@ -120,34 +120,37 @@ ENV_FILE=".env.${ENVIRONMENT}"
 
 cat > "$ENV_FILE" <<EOF
 # Azure Teams AI Chatbot - ${ENVIRONMENT^^} Environment Configuration
+# Note: Azure services configuration is handled via App Service settings and Key Vault
+# This file contains only application-level settings for local development/testing
+
 FLASK_ENV=${ENVIRONMENT}
 LOG_LEVEL=INFO
 PORT=8000
 
-# Azure OpenAI Configuration (will be set via App Service configuration)
-# AZURE_OPENAI_ENDPOINT=
-# AZURE_OPENAI_API_KEY=
-# AZURE_OPENAI_DEPLOYMENT_NAME=
+# Azure OpenAI Configuration (configured via App Service settings in production)
+# AZURE_OPENAI_ENDPOINT= (set via App Service configuration)
+# AZURE_OPENAI_API_KEY= (stored in Key Vault)
+# AZURE_OPENAI_DEPLOYMENT_NAME= (set via App Service configuration)
+# AZURE_OPENAI_API_VERSION= (set via App Service configuration)
 
-# Bot Framework Configuration (will be set via Key Vault)
-# MICROSOFT_APP_ID=
-# MICROSOFT_APP_PASSWORD=
+# Bot Framework Configuration (configured via App Service settings in production)
+# MICROSOFT_APP_ID= (set via App Service configuration)
+# MICROSOFT_APP_PASSWORD= (stored in Key Vault)
 
-# Azure Key Vault (will be set via App Service configuration)
-# AZURE_KEY_VAULT_URL=
+# Azure Key Vault (configured via App Service settings in production)
+# AZURE_KEY_VAULT_URL= (set via App Service configuration)
 
 # Application Configuration
-MAX_CONVERSATION_HISTORY=10
-OPENAI_MAX_TOKENS=1000
-OPENAI_TEMPERATURE=0.7
-
-# Conversation Configuration
 MAX_CONVERSATION_HISTORY=20
 OPENAI_MAX_TOKENS=1500
 OPENAI_TEMPERATURE=0.7
 EOF
 
 print_success "Environment configuration created: $ENV_FILE"
+print_status "Note: Azure service configuration is handled via App Service settings and Key Vault"
+
+# Use the environment-specific .env file for deployment
+DEPLOY_ENV_FILE="$ENV_FILE"
 
 # Prepare deployment package
 print_status "Preparing deployment package..."
@@ -160,7 +163,7 @@ print_status "Using temporary directory: $DEPLOY_DIR"
 cp -r src/ "$DEPLOY_DIR/"
 cp app.py "$DEPLOY_DIR/"
 cp requirements.txt "$DEPLOY_DIR/"
-cp "$ENV_FILE" "$DEPLOY_DIR/.env"
+cp "$DEPLOY_ENV_FILE" "$DEPLOY_DIR/.env"
 cp README.md "$DEPLOY_DIR/" 2>/dev/null || true
 
 # Create startup script for App Service
@@ -279,7 +282,7 @@ done
 
 # Clean up temporary files
 rm -rf "$DEPLOY_DIR"
-rm -f "$ENV_FILE"
+rm -f "$DEPLOY_ENV_FILE"
 
 echo ""
 print_success "Application deployment completed successfully!"

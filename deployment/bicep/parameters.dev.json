@@ -10,13 +10,13 @@
       "value": "dev"
     },
     "location": {
-      "value": "eastus"
+      "value": "swedencentral"
     },
     "appServicePlanSku": {
       "value": "B1"
     },
     "openAiLocation": {
-      "value": "eastus"
+      "value": "swedencentral"
     },
     "openAiSku": {
       "value": "S0"
@@ -28,7 +28,7 @@
       "value": "gpt-35-turbo"
     },
     "gptModelVersion": {
-      "value": "0613"
+      "value": "0125"
     },
     "gptDeploymentCapacity": {
       "value": 30

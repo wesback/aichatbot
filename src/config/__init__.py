@@ -34,6 +34,8 @@ class Config:
             except Exception as e:
                 logger.warning(f"Failed to initialize Key Vault client: {e}")
                 self._key_vault_client = None
+        else:
+            logger.info("AZURE_KEY_VAULT_URL not provided, using environment variables only")
     
     def get_secret(self, key: str, default: Optional[str] = None) -> Optional[str]:
         """
@@ -49,13 +51,19 @@ class Config:
         # Try Key Vault first
         if self._key_vault_client:
             try:
-                secret = self._key_vault_client.get_secret(key)
+                # Azure Key Vault secret names use hyphens instead of underscores
+                kv_key = key.replace('_', '-')
+                secret = self._key_vault_client.get_secret(kv_key)
+                logger.debug(f"Successfully retrieved secret '{key}' from Key Vault as '{kv_key}'")
                 return secret.value
             except Exception as e:
-                logger.debug(f"Failed to get secret '{key}' from Key Vault: {e}")
+                logger.debug(f"Failed to get secret '{key}' (as '{kv_key}') from Key Vault: {e}")
         
         # Fall back to environment variables
-        return os.getenv(key, default)
+        env_value = os.getenv(key, default)
+        if env_value != default:
+            logger.debug(f"Retrieved '{key}' from environment variables")
+        return env_value
     
     # Azure OpenAI Configuration
     @property
@@ -89,6 +97,22 @@ class Config:
         """Microsoft Bot Framework App Password."""
         return self.get_secret('MICROSOFT_APP_PASSWORD', '')
     
+    @property
+    def is_managed_identity_mode(self) -> bool:
+        """Check if running in managed identity mode (no password required)."""
+        return bool(self.microsoft_app_id and not self.microsoft_app_password)
+    
+    @property
+    def is_app_id_password_mode(self) -> bool:
+        """Check if running in App ID/Password mode."""
+        return bool(self.microsoft_app_id and self.microsoft_app_password)
+
+    # Azure Key Vault URL
+    @property
+    def azure_key_vault_url(self) -> str:
+        """Azure Key Vault URL."""
+        return self.get_secret('AZURE_KEY_VAULT_URL', '')
+
     # Application Configuration
     @property
     def flask_env(self) -> str:

@@ -132,8 +132,12 @@ else
     print_status "Resource group already exists"
 fi
 
+# Get script directory and project root
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
 # Determine parameters file
-PARAMS_FILE="deployment/bicep/parameters.${ENVIRONMENT}.json"
+PARAMS_FILE="$PROJECT_ROOT/deployment/bicep/parameters.${ENVIRONMENT}.json"
 if [[ ! -f "$PARAMS_FILE" ]]; then
     print_error "Parameters file not found: $PARAMS_FILE"
     exit 1
@@ -141,7 +145,7 @@ fi
 
 # Prepare deployment parameters
 DEPLOYMENT_NAME="${APP_NAME}-${ENVIRONMENT}-$(date +%Y%m%d-%H%M%S)"
-BICEP_FILE="deployment/bicep/main.bicep"
+BICEP_FILE="$PROJECT_ROOT/deployment/bicep/main.bicep"
 
 if [[ ! -f "$BICEP_FILE" ]]; then
     print_error "Bicep template not found: $BICEP_FILE"

@@ -28,7 +28,7 @@
       "value": "gpt-35-turbo"
     },
     "gptModelVersion": {
-      "value": "0613"
+      "value": "0125"
     },
     "gptDeploymentCapacity": {
       "value": 50

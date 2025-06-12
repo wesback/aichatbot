@@ -26,28 +26,42 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
 # Bot Framework adapter settings - Support both Managed Identity and App Password
-if config.microsoft_app_id and config.microsoft_app_password:
+if config.is_app_id_password_mode:
     # Traditional App ID/Password authentication
     logger.info("Using Bot Framework App ID/Password authentication")
     settings = BotFrameworkAdapterSettings(
         app_id=config.microsoft_app_id,
         app_password=config.microsoft_app_password
     )
-else:
+elif config.is_managed_identity_mode:
     # Managed Identity authentication (for Azure deployment)
     logger.info("Using Bot Framework Managed Identity authentication")
     settings = BotFrameworkAdapterSettings(
-        app_id="",  # Empty for managed identity
+        app_id=config.microsoft_app_id,  # Use the managed identity App ID
         app_password=""  # Empty for managed identity
     )
+else:
+    # Development/local mode - no authentication
+    logger.info("Using Bot Framework development mode (no authentication)")
+    settings = BotFrameworkAdapterSettings(
+        app_id="",
+        app_password=""
+    )
+
+# Log authentication configuration status
+logger.info(f"Bot Framework configuration - App ID: {'✓' if config.microsoft_app_id else '✗'}, "
+           f"Password: {'✓' if config.microsoft_app_password else '✗'}, "
+           f"Mode: {'Managed Identity' if config.is_managed_identity_mode else 'App ID/Password' if config.is_app_id_password_mode else 'Development'}")
 
 # Validate Bot Framework configuration
-if not config.microsoft_app_id and not config.microsoft_app_password:
-    logger.warning("Bot Framework credentials not configured. Using Managed Identity mode for Azure deployment.")
-elif config.microsoft_app_id and not config.microsoft_app_password:
-    logger.warning("MICROSOFT_APP_PASSWORD is not configured but MICROSOFT_APP_ID is set. This may cause authentication issues.")
-elif not config.microsoft_app_id and config.microsoft_app_password:
-    logger.warning("MICROSOFT_APP_ID is not configured but MICROSOFT_APP_PASSWORD is set. This may cause authentication issues.")
+if config.is_managed_identity_mode:
+    logger.info("✅ Managed Identity mode detected - no password required")
+elif config.is_app_id_password_mode:
+    logger.info("✅ App ID/Password mode detected")
+elif not config.microsoft_app_id and not config.microsoft_app_password:
+    logger.warning("⚠️ No Bot Framework credentials configured. Using development mode.")
+else:
+    logger.warning("⚠️ Incomplete Bot Framework configuration detected")
 
 # Create Bot Framework adapter
 adapter = BotFrameworkAdapter(settings)
@@ -442,13 +456,32 @@ def health_check():
         }
         
         # Check if critical configuration is missing
-        if not config.azure_openai_endpoint or not config.azure_openai_api_key:
+        if not config.azure_openai_endpoint:
             health_status["status"] = "degraded"
-            health_status["components"]["azure_openai"] = "not_configured"
+            health_status["components"]["azure_openai"] = "endpoint_not_configured"
+        elif not config.azure_openai_api_key:
+            health_status["status"] = "degraded"
+            health_status["components"]["azure_openai"] = "api_key_not_configured"
         
-        if not config.microsoft_app_id or not config.microsoft_app_password:
+        # For Bot Framework, provide detailed authentication status
+        if config.is_managed_identity_mode:
+            health_status["components"]["bot_framework"] = "managed_identity_mode"
+        elif config.is_app_id_password_mode:
+            health_status["components"]["bot_framework"] = "app_id_password_mode"
+        elif not config.microsoft_app_id:
             health_status["status"] = "degraded"
-            health_status["components"]["bot_framework"] = "not_configured"
+            health_status["components"]["bot_framework"] = "app_id_not_configured"
+        else:
+            health_status["status"] = "degraded" 
+            health_status["components"]["bot_framework"] = "incomplete_configuration"
+        
+        # Add Key Vault status
+        if hasattr(config, '_key_vault_client') and config._key_vault_client:
+            health_status["components"]["key_vault"] = "ok"
+        elif config.azure_key_vault_url:
+            health_status["components"]["key_vault"] = "configured_but_failed"
+        else:
+            health_status["components"]["key_vault"] = "not_configured"
         
         status_code = 200 if health_status["status"] == "healthy" else 503
         return jsonify(health_status), status_code
